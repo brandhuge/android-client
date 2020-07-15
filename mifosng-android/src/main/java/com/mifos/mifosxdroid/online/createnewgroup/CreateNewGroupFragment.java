@@ -12,7 +12,7 @@ package com.mifos.mifosxdroid.online.createnewgroup;
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.support.v4.app.DialogFragment;
+import androidx.fragment.app.DialogFragment;
 import android.text.TextUtils;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -23,6 +23,7 @@ import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.CompoundButton;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -48,6 +49,7 @@ import com.mifos.utils.PrefManager;
 import com.mifos.utils.ValidationUtil;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -84,6 +86,9 @@ public class CreateNewGroupFragment extends ProgressableFragment
 
     @BindView(R.id.btn_submit)
     Button bt_submit;
+
+    @BindView(R.id.layout_submission)
+    LinearLayout layout_submission;
 
     @Inject
     CreateNewGroupPresenter mCreateNewGroupPresenter;
@@ -147,9 +152,9 @@ public class CreateNewGroupFragment extends ProgressableFragment
             @Override
             public void onCheckedChanged(CompoundButton compoundButton, boolean isChecked) {
                 if (isChecked) {
-                    tv_activationDate.setVisibility(View.VISIBLE);
+                    layout_submission.setVisibility(View.VISIBLE);
                 } else {
-                    tv_activationDate.setVisibility(View.GONE);
+                    layout_submission.setVisibility(View.GONE);
                 }
 
             }
@@ -281,6 +286,7 @@ public class CreateNewGroupFragment extends ProgressableFragment
         for (Office office : offices) {
             mListOffices.add(office.getName());
         }
+        Collections.sort(mListOffices);
         mOfficesAdapter.notifyDataSetChanged();
     }
 

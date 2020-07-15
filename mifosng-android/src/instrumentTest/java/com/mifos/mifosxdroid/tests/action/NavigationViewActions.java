@@ -17,22 +17,22 @@
 package com.mifos.mifosxdroid.tests.action;
 
 import android.content.res.Resources.NotFoundException;
-import android.support.design.widget.NavigationView;
-import android.support.test.espresso.PerformException;
-import android.support.test.espresso.UiController;
-import android.support.test.espresso.ViewAction;
-import android.support.test.espresso.matcher.ViewMatchers;
-import android.support.test.espresso.util.HumanReadables;
-import android.support.v4.widget.DrawerLayout;
+import com.google.android.material.navigation.NavigationView;
+import androidx.test.espresso.PerformException;
+import androidx.test.espresso.UiController;
+import androidx.test.espresso.ViewAction;
+import androidx.test.espresso.matcher.ViewMatchers;
+import androidx.test.espresso.util.HumanReadables;
+import androidx.drawerlayout.widget.DrawerLayout;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 
 import org.hamcrest.Matcher;
 
-import static android.support.test.espresso.matcher.ViewMatchers.isAssignableFrom;
-import static android.support.test.espresso.matcher.ViewMatchers.isDisplayingAtLeast;
-import static android.support.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
+import static androidx.test.espresso.matcher.ViewMatchers.isAssignableFrom;
+import static androidx.test.espresso.matcher.ViewMatchers.isDisplayingAtLeast;
+import static androidx.test.espresso.matcher.ViewMatchers.withEffectiveVisibility;
 import static org.hamcrest.Matchers.allOf;
 
 /**
@@ -82,7 +82,7 @@ public final class NavigationViewActions {
 
             private String getErrorMessage(Menu menu, View view) {
                 String NEW_LINE = System.getProperty("line.separator");
-                StringBuilder errorMessage = new StringBuilder(20)
+                StringBuilder errorMessage = new StringBuilder(66)
                         .append("Menu item was not found, available menu items:")
                         .append(NEW_LINE);
                 for (int position = 0; position < menu.size(); position++) {

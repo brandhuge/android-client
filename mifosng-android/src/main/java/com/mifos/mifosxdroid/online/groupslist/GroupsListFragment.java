@@ -7,21 +7,19 @@ package com.mifos.mifosxdroid.online.groupslist;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.view.ActionMode;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.appcompat.view.ActionMode;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
 import android.widget.ProgressBar;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
 
+import com.github.therajanmaurya.sweeterror.SweetUIErrorHandler;
 import com.mifos.mifosxdroid.R;
 import com.mifos.mifosxdroid.adapters.GroupNameListAdapter;
 import com.mifos.mifosxdroid.core.EndlessRecyclerViewScrollListener;
@@ -37,6 +35,8 @@ import com.mifos.utils.Constants;
 import com.mifos.utils.FragmentConstants;
 
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -78,14 +78,8 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
     @BindView(R.id.swipe_container)
     SwipeRefreshLayout swipeRefreshLayout;
 
-    @BindView(R.id.noGroupsText)
-    TextView mNoGroupsText;
-
-    @BindView(R.id.noGroupsIcon)
-    ImageView mNoGroupIcon;
-
-    @BindView(R.id.rl_error)
-    RelativeLayout rlError;
+    @BindView(R.id.layout_error)
+    View errorView;
 
     @Inject
     GroupsListPresenter mGroupsListPresenter;
@@ -100,6 +94,7 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
     private View rootView;
     private ActionModeCallback actionModeCallback;
     private ActionMode actionMode;
+    private SweetUIErrorHandler sweetUIErrorHandler;
 
     /**
      * This method will be called, whenever GroupsListFragment will not have Parent Fragment.
@@ -228,6 +223,7 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
         swipeRefreshLayout.setColorSchemeColors(getActivity()
                 .getResources().getIntArray(R.array.swipeRefreshColors));
         swipeRefreshLayout.setOnRefreshListener(this);
+        sweetUIErrorHandler = new SweetUIErrorHandler(getActivity(), rootView);
     }
 
     @OnClick(R.id.fab_create_group)
@@ -252,10 +248,9 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
      * As the error will occurred. user is able to see the error message and ability to reload
      * groupList.
      */
-    @OnClick(R.id.noGroupsIcon)
+    @OnClick(R.id.btn_try_again)
     public void reloadOnError() {
-        rlError.setVisibility(View.GONE);
-        rv_groups.setVisibility(View.VISIBLE);
+        sweetUIErrorHandler.hideSweetErrorLayoutUI(rv_groups, errorView);
         mGroupsListPresenter.loadGroups(false, 0);
         mGroupsListPresenter.loadDatabaseGroups();
     }
@@ -266,6 +261,12 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
     @Override
     public void showGroups(List<Group> groups) {
         mGroupList = groups;
+        Collections.sort(mGroupList, new Comparator<Group>() {
+            @Override
+            public int compare(Group grp1, Group grp2) {
+                return grp1.getName().compareTo(grp2.getName());
+            }
+        });
         mGroupListAdapter.setGroups(groups);
     }
 
@@ -288,9 +289,8 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
      */
     @Override
     public void showEmptyGroups(int message) {
-        rv_groups.setVisibility(View.GONE);
-        rlError.setVisibility(View.VISIBLE);
-        mNoGroupsText.setText(getStringMessage(message));
+        sweetUIErrorHandler.showSweetEmptyUI(getString(R.string.group), getString(message),
+                R.drawable.ic_error_black_24dp, rv_groups, errorView);
     }
 
     /**
@@ -300,7 +300,6 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
     public void unregisterSwipeAndScrollListener() {
         rv_groups.clearOnScrollListeners();
         swipeRefreshLayout.setEnabled(false);
-        mNoGroupIcon.setEnabled(false);
     }
 
     /**
@@ -320,11 +319,9 @@ public class GroupsListFragment extends MifosBaseFragment implements GroupsListM
      */
     @Override
     public void showFetchingError() {
-        rv_groups.setVisibility(View.GONE);
-        rlError.setVisibility(View.VISIBLE);
-        String errorMessage = getStringMessage(R.string.failed_to_fetch_groups)
-                + getStringMessage(R.string.new_line) + getStringMessage(R.string.click_to_refresh);
-        mNoGroupsText.setText(errorMessage);
+        String errorMessage = getStringMessage(R.string.failed_to_fetch_groups);
+        sweetUIErrorHandler.showSweetErrorUI(errorMessage,
+                R.drawable.ic_error_black_24dp, rv_groups, errorView);
     }
 
 

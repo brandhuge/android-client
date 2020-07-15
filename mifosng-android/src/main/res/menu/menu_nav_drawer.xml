@@ -34,9 +34,30 @@
             />
 
         <item
+            android:id="@+id/item_checker_inbox"
+            android:checked="false"
+            android:icon="@drawable/ic_check_box_black_24dp"
+            android:title="@string/checker_inbox"
+            />
+
+        <item
             android:id="@+id/individual_collection_sheet"
             android:checked="false"
+            android:icon="@drawable/ic_assignment_black_24dp"
             android:title="@string/individual_collection_sheet"
+            />
+
+        <item
+            android:id ="@+id/collection_sheet"
+            android:checked="false"
+            android:icon="@drawable/ic_assignment_black_24dp"
+            android:title="@string/collection_sheet"/>
+
+        <item
+            android:id="@+id/runreport"
+            android:checked="false"
+            android:icon="@drawable/ic_report_item"
+            android:title="@string/run_report"
             />
                 
         <item
@@ -44,6 +65,13 @@
             android:checked="false"
             android:icon="@drawable/ic_path_tracker"
             android:title="@string/path_tracker"
+            />
+
+        <item
+            android:id="@+id/item_settings"
+            android:checked="false"
+            android:icon="@drawable/ic_settings"
+            android:title="@string/settings"
             />
 
     </group>

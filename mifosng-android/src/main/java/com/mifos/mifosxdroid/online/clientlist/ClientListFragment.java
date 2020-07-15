@@ -8,20 +8,20 @@ package com.mifos.mifosxdroid.online.clientlist;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Parcelable;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.view.ActionMode;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+
+import androidx.fragment.app.FragmentTransaction;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.appcompat.view.ActionMode;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.ImageView;
-import android.widget.RelativeLayout;
-import android.widget.TextView;
+import android.widget.ProgressBar;
 
+import com.github.therajanmaurya.sweeterror.SweetUIErrorHandler;
 import com.mifos.mifosxdroid.R;
 import com.mifos.mifosxdroid.adapters.ClientNameListAdapter;
 import com.mifos.mifosxdroid.core.EndlessRecyclerViewScrollListener;
@@ -45,6 +45,9 @@ import javax.inject.Inject;
 import butterknife.BindView;
 import butterknife.ButterKnife;
 import butterknife.OnClick;
+
+import static android.view.View.GONE;
+import static android.view.View.VISIBLE;
 
 
 /**
@@ -77,14 +80,11 @@ public class ClientListFragment extends MifosBaseFragment
     @BindView(R.id.swipe_container)
     SwipeRefreshLayout swipeRefreshLayout;
 
-    @BindView(R.id.noClientText)
-    TextView mNoClientText;
+    @BindView(R.id.layout_error)
+    View errorView;
 
-    @BindView(R.id.rl_error)
-    RelativeLayout rlError;
-
-    @BindView(R.id.noClientIcon)
-    ImageView mNoClientIcon;
+    @BindView(R.id.pb_client)
+    ProgressBar pb_client;
 
     @Inject
     ClientNameListAdapter mClientNameListAdapter;
@@ -100,6 +100,7 @@ public class ClientListFragment extends MifosBaseFragment
     private Boolean isParentFragment = false;
     private LinearLayoutManager mLayoutManager;
     private Integer clickedPosition = -1;
+    private SweetUIErrorHandler sweetUIErrorHandler;
 
     @Override
     public void onItemClick(View childView, int position) {
@@ -236,6 +237,7 @@ public class ClientListFragment extends MifosBaseFragment
         swipeRefreshLayout.setColorSchemeColors(getActivity()
                 .getResources().getIntArray(R.array.swipeRefreshColors));
         swipeRefreshLayout.setOnRefreshListener(this);
+        sweetUIErrorHandler = new SweetUIErrorHandler(getActivity(), rootView);
     }
 
     @OnClick(R.id.fab_create_client)
@@ -265,7 +267,6 @@ public class ClientListFragment extends MifosBaseFragment
     public void unregisterSwipeAndScrollListener() {
         rv_clients.clearOnScrollListeners();
         swipeRefreshLayout.setEnabled(false);
-        mNoClientIcon.setEnabled(false);
     }
 
     /**
@@ -281,10 +282,9 @@ public class ClientListFragment extends MifosBaseFragment
     /**
      * Onclick Send Fresh Request for Client list.
      */
-    @OnClick(R.id.noClientIcon)
+    @OnClick(R.id.btn_try_again)
     public void reloadOnError() {
-        rlError.setVisibility(View.GONE);
-        rv_clients.setVisibility(View.VISIBLE);
+        sweetUIErrorHandler.hideSweetErrorLayoutUI(rv_clients, errorView);
         mClientListPresenter.loadClients(false, 0);
         mClientListPresenter.loadDatabaseClients();
     }
@@ -317,9 +317,8 @@ public class ClientListFragment extends MifosBaseFragment
      */
     @Override
     public void showEmptyClientList(int message) {
-        rv_clients.setVisibility(View.GONE);
-        rlError.setVisibility(View.VISIBLE);
-        mNoClientText.setText(getStringMessage(message));
+        sweetUIErrorHandler.showSweetEmptyUI(getString(R.string.client),
+                getString(message), R.drawable.ic_error_black_24dp, rv_clients, errorView);
     }
 
     /**
@@ -328,11 +327,9 @@ public class ClientListFragment extends MifosBaseFragment
      */
     @Override
     public void showError() {
-        rv_clients.setVisibility(View.GONE);
-        rlError.setVisibility(View.VISIBLE);
-        String errorMessage = getStringMessage(R.string.failed_to_load_client)
-                + getStringMessage(R.string.new_line) + getStringMessage(R.string.click_to_refresh);
-        mNoClientText.setText(errorMessage);
+        String errorMessage = getStringMessage(R.string.failed_to_load_client);
+        sweetUIErrorHandler.showSweetErrorUI(errorMessage, R.drawable.ic_error_black_24dp,
+                rv_clients, errorView);
     }
 
 
@@ -344,10 +341,10 @@ public class ClientListFragment extends MifosBaseFragment
     public void showProgressbar(boolean show) {
         swipeRefreshLayout.setRefreshing(show);
         if (show && mClientNameListAdapter.getItemCount() == 0) {
-            showMifosProgressBar();
+            pb_client.setVisibility(VISIBLE);
             swipeRefreshLayout.setRefreshing(false);
         } else {
-            hideMifosProgressBar();
+            pb_client.setVisibility(GONE);
         }
     }
 

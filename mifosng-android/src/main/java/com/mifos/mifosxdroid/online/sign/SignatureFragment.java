@@ -7,9 +7,9 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
-import android.support.annotation.Nullable;
-import android.support.design.widget.BottomNavigationView;
+import androidx.annotation.NonNull;
+import androidx.annotation.Nullable;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -65,7 +65,8 @@ public class SignatureFragment extends MifosBaseFragment implements
     public void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         ((MifosBaseActivity) getActivity()).getActivityComponent().inject(this);
-        safeUIBlockingUtility = new SafeUIBlockingUtility(getActivity());
+        safeUIBlockingUtility = new SafeUIBlockingUtility(getActivity(),
+                getString(R.string.signature_fragment_loading_message));
         if (getArguments() != null) {
             mClientId = getArguments().getInt(Constants.CLIENT_ID);
         }
@@ -258,6 +259,10 @@ public class SignatureFragment extends MifosBaseFragment implements
 
     @Override
     public void saveAndUploadSignature() {
-        signView.saveSignature(mClientId);
+        if (signView.getXCoordinateSize() > 0 && signView.getYCoordinateSize() > 0) {
+            signView.saveSignature(mClientId);
+        } else {
+            Toaster.show(rootView, R.string.empty_signature);
+        }
     }
 }

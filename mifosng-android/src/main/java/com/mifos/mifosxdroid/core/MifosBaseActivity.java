@@ -7,13 +7,13 @@ package com.mifos.mifosxdroid.core;
 
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
-import android.support.v4.app.Fragment;
-import android.support.v4.app.FragmentManager;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v7.app.AppCompatActivity;
-import android.support.v7.widget.SwitchCompat;
-import android.support.v7.widget.Toolbar;
+import androidx.fragment.app.Fragment;
+import androidx.fragment.app.FragmentManager;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.appcompat.widget.SwitchCompat;
+import androidx.appcompat.widget.Toolbar;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.inputmethod.InputMethodManager;
@@ -25,25 +25,23 @@ import com.mifos.mifosxdroid.injection.component.ActivityComponent;
 import com.mifos.mifosxdroid.injection.component.DaggerActivityComponent;
 import com.mifos.mifosxdroid.injection.module.ActivityModule;
 import com.mifos.mifosxdroid.passcode.PassCodeActivity;
+import com.mifos.mobile.passcode.BasePassCodeActivity;
 import com.mifos.utils.Constants;
-import com.mifos.utils.ForegroundChecker;
 import com.mifos.utils.PrefManager;
 
 /**
  * @author fomenkoo
  */
-public class MifosBaseActivity extends AppCompatActivity implements BaseActivityCallback,
-        ForegroundChecker.Listener {
+public class MifosBaseActivity extends BasePassCodeActivity implements BaseActivityCallback {
 
     protected Toolbar toolbar;
     private ActivityComponent mActivityComponent;
     private ProgressDialog progress;
 
-
     @Override
     public void setContentView(int layoutResID) {
         super.setContentView(layoutResID);
-        toolbar = (Toolbar) findViewById(R.id.toolbar);
+        toolbar = findViewById(R.id.toolbar);
         if (toolbar != null) {
             setSupportActionBar(toolbar);
         }
@@ -125,19 +123,27 @@ public class MifosBaseActivity extends AppCompatActivity implements BaseActivity
     public void hideKeyboard(View view) {
         InputMethodManager inputManager = (InputMethodManager) this
                  .getSystemService(Context.INPUT_METHOD_SERVICE);
-        inputManager.hideSoftInputFromWindow(view.getWindowToken(), InputMethodManager
+        inputManager.hideSoftInputFromWindow(getWindow().getAttributes().token, InputMethodManager
                  .RESULT_UNCHANGED_SHOWN);
     }
 
     @Override
     public void logout() {
-        if (PrefManager.getPassCodeStatus()) {
-            startActivity(new Intent(this, PassCodeActivity.class));
-        } else {
-            PrefManager.clearPrefs();
-            startActivity(new Intent(this, SplashScreenActivity.class));
-        }
-        finish();
+        new MaterialDialog.Builder().init(MifosBaseActivity.this)
+                .setMessage(R.string.dialog_logout)
+                .setPositiveButton(getString(R.string.logout),
+                        new DialogInterface.OnClickListener() {
+                            @Override
+                            public void onClick(DialogInterface dialog, int which) {
+                                PrefManager.clearPrefs();
+                                startActivity(new Intent(MifosBaseActivity.this,
+                                        SplashScreenActivity.class));
+                                finish();
+                            }
+                        })
+                .setNegativeButton(getString(R.string.cancel))
+                .createMaterialDialog()
+                .show();
     }
 
     public void replaceFragment(Fragment fragment, boolean addToBackStack, int containerId) {
@@ -167,22 +173,7 @@ public class MifosBaseActivity extends AppCompatActivity implements BaseActivity
     }
 
     @Override
-    protected void onResume() {
-        super.onResume();
-        ForegroundChecker.get().addListener(this);
-        ForegroundChecker.get().onActivityResumed();
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        ForegroundChecker.get().onActivityPaused();
-    }
-
-    @Override
-    public void onBecameForeground() {
-        Intent intent = new Intent(this, PassCodeActivity.class);
-        intent.putExtra(Constants.INTIAL_LOGIN, false);
-        startActivity(intent);
+    public Class getPassCodeClass() {
+        return PassCodeActivity.class;
     }
 }

@@ -6,11 +6,11 @@
 package com.mifos.mifosxdroid.online.clientidentifiers;
 
 import android.os.Bundle;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.PopupMenu;
-import android.support.v7.widget.RecyclerView;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.appcompat.widget.PopupMenu;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuInflater;
@@ -26,6 +26,8 @@ import com.mifos.mifosxdroid.R;
 import com.mifos.mifosxdroid.adapters.IdentifierListAdapter;
 import com.mifos.mifosxdroid.core.MifosBaseActivity;
 import com.mifos.mifosxdroid.core.MifosBaseFragment;
+import com.mifos.mifosxdroid.core.util.Toaster;
+import com.mifos.mifosxdroid.dialogfragments.identifierdialog.ClientIdentifierCreationListener;
 import com.mifos.mifosxdroid.dialogfragments.identifierdialog.IdentifierDialogFragment;
 import com.mifos.mifosxdroid.online.documentlist.DocumentListFragment;
 import com.mifos.objects.noncore.Identifier;
@@ -43,7 +45,8 @@ import static com.mifos.mifosxdroid.adapters.IdentifierListAdapter.IdentifierOpt
 
 
 public class ClientIdentifiersFragment extends MifosBaseFragment implements
-        ClientIdentifiersMvpView, IdentifierOptionsListener, SwipeRefreshLayout.OnRefreshListener {
+        ClientIdentifiersMvpView, IdentifierOptionsListener, SwipeRefreshLayout.OnRefreshListener,
+        ClientIdentifierCreationListener {
 
     @BindView(R.id.rv_client_identifier)
     RecyclerView rv_client_identifier;
@@ -130,13 +133,36 @@ public class ClientIdentifiersFragment extends MifosBaseFragment implements
     public void showClientIdentifiers(List<Identifier> identifiers) {
         this.identifiers = identifiers;
         identifierListAdapter.setIdentifiers(identifiers);
+        identifierListAdapter.notifyDataSetChanged();
+
+        if (identifiers.isEmpty()) {
+            showEmptyClientIdentifier();
+        } else {
+            if (ll_error.getVisibility() == View.VISIBLE) {
+                ll_error.setVisibility(View.GONE);
+            }
+        }
     }
 
-    @Override
-    public void showEmptyClientIdentifier() {
+    private void showEmptyClientIdentifier() {
         ll_error.setVisibility(View.VISIBLE);
         mNoIdentifierText.setText(getResources().getString(R.string.no_identifier_to_show));
         mNoIdentifierIcon.setImageResource(R.drawable.ic_assignment_turned_in_black_24dp);
+    }
+
+    @Override
+    public void onClientIdentifierCreationSuccess(Identifier identifier) {
+        if (identifiers.size() == 0) {
+            //The list is empty prior to adding the new identifier. Remove the empty list message.
+            ll_error.setVisibility(View.GONE);
+        }
+        identifiers.add(identifier);
+        identifierListAdapter.notifyItemInserted(identifiers.size() - 1);
+    }
+
+    @Override
+    public void onClientIdentifierCreationFailure(String errorMessage) {
+        Toaster.show(rootView, errorMessage);
     }
 
     @Override
@@ -153,7 +179,7 @@ public class ClientIdentifiersFragment extends MifosBaseFragment implements
                 switch (item.getItemId()) {
                     case R.id.menu_remove_identifier:
                         mClientIdentifiersPresenter.deleteIdentifier(clientId,
-                                identifiers.get(position).getId());
+                                identifiers.get(position).getId(), position);
                         break;
                     case R.id.menu_identifier_documents:
                         DocumentListFragment documentListFragment =
@@ -177,10 +203,11 @@ public class ClientIdentifiersFragment extends MifosBaseFragment implements
     }
 
     @Override
-    public void identifierDeletedSuccessfully() {
+    public void identifierDeletedSuccessfully(int position) {
         Toast.makeText(getActivity(), R.string.identifier_deleted_successfully,
                 Toast.LENGTH_SHORT).show();
-        loadIdentifiers();
+        identifiers.remove(position);
+        identifierListAdapter.notifyItemRemoved(position);
     }
 
     @Override
@@ -206,6 +233,7 @@ public class ClientIdentifiersFragment extends MifosBaseFragment implements
             case R.id.menu_add:
                 IdentifierDialogFragment identifierDialogFragment =
                         IdentifierDialogFragment.newInstance(clientId);
+                identifierDialogFragment.setOnClientIdentifierCreationListener(this);
                 FragmentTransaction fragmentTransaction = getActivity().getSupportFragmentManager()
                         .beginTransaction();
                 fragmentTransaction.addToBackStack(FragmentConstants.FRAG_DOCUMENT_LIST);

@@ -6,31 +6,45 @@
 
 package com.mifos.mifosxdroid.online.createnewclient;
 
+import android.Manifest;
+import android.app.Activity;
+import android.app.ProgressDialog;
+import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.database.Cursor;
+import android.graphics.BitmapFactory;
+import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.app.DialogFragment;
-import android.support.v4.app.FragmentTransaction;
+import android.provider.MediaStore;
+import androidx.fragment.app.DialogFragment;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.appcompat.widget.PopupMenu;
 import android.telephony.PhoneNumberUtils;
 import android.text.TextUtils;
+import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
 import android.widget.CheckBox;
 import android.widget.EditText;
+import android.widget.LinearLayout;
 import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import com.mifos.exceptions.InvalidTextInputException;
 import com.mifos.exceptions.RequiredFieldException;
-import com.mifos.exceptions.ShortOfLengthException;
 import com.mifos.mifosxdroid.R;
 import com.mifos.mifosxdroid.core.MifosBaseActivity;
 import com.mifos.mifosxdroid.core.ProgressableFragment;
 import com.mifos.mifosxdroid.core.util.Toaster;
 import com.mifos.mifosxdroid.online.datatablelistfragment.DataTableListFragment;
 import com.mifos.mifosxdroid.uihelpers.MFDatePicker;
+import com.mifos.mifosxdroid.views.CircularImageView;
 import com.mifos.objects.client.ClientPayload;
 import com.mifos.objects.organisation.Office;
 import com.mifos.objects.organisation.Staff;
@@ -40,7 +54,9 @@ import com.mifos.utils.DateHelper;
 import com.mifos.utils.FragmentConstants;
 import com.mifos.utils.ValidationUtil;
 
+import java.io.File;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 import javax.inject.Inject;
@@ -57,7 +73,14 @@ public class CreateNewClientFragment extends ProgressableFragment
 
     private final String LOG_TAG = getClass().getSimpleName();
 
+    private static final int CAPTURE_IMAGE_ACTIVITY_REQUEST_CODE = 1;
+    private static final int PICK_IMAGE_ACTIVITY_REQUEST_CODE = 2;
+    private static final int READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE = 3;
+
     public DialogFragment datePickerSubmissionDate, datePickerDateOfBirth;
+
+    @BindView(R.id.iv_clientImage)
+    CircularImageView ivClientImage;
 
     @BindView(R.id.et_client_first_name)
     EditText etClientFirstName;
@@ -98,11 +121,17 @@ public class CreateNewClientFragment extends ProgressableFragment
     @BindView(R.id.sp_client_classification)
     Spinner spClientClassification;
 
+    @BindView(R.id.layout_submission)
+    LinearLayout layout_submission;
+
     @Inject
     CreateNewClientPresenter createNewClientPresenter;
 
     View rootView;
+    // It checks whether the user wants to create the new client with or without picture
+    private boolean createClientWithImage = false;
     private boolean hasDataTables;
+    private Integer returnedClientId;
     private int officeId;
     private int clientTypeId;
     private int staffId;
@@ -115,6 +144,8 @@ public class CreateNewClientFragment extends ProgressableFragment
     private List<Office> clientOffices;
     private List<Staff> clientStaff;
     private View mCurrentDateView;    // the view whose click opened the date picker
+    private File ClientImageFile;
+    private Uri pickedImageUri;
 
     private List<String> genderOptionsList;
     private List<String> clientClassificationList;
@@ -127,6 +158,8 @@ public class CreateNewClientFragment extends ProgressableFragment
     private ArrayAdapter<String> clientTypeAdapter;
     private ArrayAdapter<String> officeAdapter;
     private ArrayAdapter<String> staffAdapter;
+
+    private ProgressDialog progress;
 
     public static CreateNewClientFragment newInstance() {
         CreateNewClientFragment createNewClientFragment = new CreateNewClientFragment();
@@ -156,7 +189,6 @@ public class CreateNewClientFragment extends ProgressableFragment
         showUserInterface();
 
         createNewClientPresenter.loadClientTemplate();
-        createNewClientPresenter.loadOffices();
 
         return rootView;
     }
@@ -199,6 +231,60 @@ public class CreateNewClientFragment extends ProgressableFragment
         datePickerDateOfBirth = MFDatePicker.newInsance(this);
         tvSubmissionDate.setText(MFDatePicker.getDatePickedAsString());
         tvDateOfBirth.setText(MFDatePicker.getDatePickedAsString());
+
+        ivClientImage.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                PopupMenu menu = new PopupMenu(getActivity(), view);
+                menu.getMenuInflater().inflate(R.menu.menu_create_client_image, menu
+                        .getMenu());
+                menu.setOnMenuItemClickListener(
+                        new PopupMenu.OnMenuItemClickListener() {
+                            @Override
+                            public boolean onMenuItemClick(MenuItem menuItem) {
+                                switch (menuItem.getItemId()) {
+                                    case R.id.client_image_capture:
+                                        captureClientImage();
+                                        break;
+                                    case R.id.client_image_upload:
+                                        uploadClientImageFromDevice();
+                                        break;
+                                    case R.id.client_image_remove:
+                                        removeExistingImage();
+                                        break;
+                                    default:
+                                        Log.e("CreateNewClientFragment", "Unrecognized " +
+                                                "client " +
+                                                "image menu item");
+                                }
+                                return true;
+                            }
+                        });
+                menu.show();
+            }
+        });
+    }
+
+    private void captureClientImage() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        ClientImageFile = new File(
+                getActivity().getExternalCacheDir(), "client_image.png");
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, Uri.fromFile(ClientImageFile));
+        startActivityForResult(intent, CAPTURE_IMAGE_ACTIVITY_REQUEST_CODE);
+    }
+
+    private void uploadClientImageFromDevice() {
+        if (isStoragePermissionGranted()) {
+            Intent galleryIntent = new Intent(Intent.ACTION_PICK,
+                    MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+            startActivityForResult(galleryIntent, PICK_IMAGE_ACTIVITY_REQUEST_CODE);
+        }
+    }
+
+    private void removeExistingImage() {
+        ivClientImage.
+                setImageDrawable(getResources().getDrawable(R.drawable.ic_dp_placeholder));
+        createClientWithImage = false;
     }
 
     @OnClick(R.id.tv_submission_date)
@@ -282,6 +368,7 @@ public class CreateNewClientFragment extends ProgressableFragment
 
                 FragmentTransaction fragmentTransaction = getActivity().getSupportFragmentManager()
                         .beginTransaction();
+                getActivity().getSupportFragmentManager().popBackStackImmediate();
                 fragmentTransaction.addToBackStack(FragmentConstants.DATA_TABLE_LIST);
                 fragmentTransaction.replace(R.id.container, fragment).commit();
             } else {
@@ -293,7 +380,7 @@ public class CreateNewClientFragment extends ProgressableFragment
 
     @OnCheckedChanged(R.id.cb_client_active_status)
     public void onClickActiveCheckBox() {
-        tvSubmissionDate.setVisibility(cbClientActiveStatus.isChecked()
+        layout_submission.setVisibility(cbClientActiveStatus.isChecked()
                 ? View.VISIBLE : View.GONE);
     }
 
@@ -330,6 +417,7 @@ public class CreateNewClientFragment extends ProgressableFragment
     public void showOffices(List<Office> offices) {
         clientOffices = offices;
         officeList.addAll(createNewClientPresenter.filterOffices(offices));
+        Collections.sort(officeList);
         officeAdapter.notifyDataSetChanged();
     }
 
@@ -346,6 +434,11 @@ public class CreateNewClientFragment extends ProgressableFragment
 
     @Override
     public void showClientCreatedSuccessfully(int message) {
+        Toaster.show(rootView, message);
+    }
+
+    @Override
+    public void showWaitingForCheckerApproval(int message) {
         Toaster.show(rootView, message);
         getActivity().getSupportFragmentManager().popBackStack();
     }
@@ -406,19 +499,12 @@ public class CreateNewClientFragment extends ProgressableFragment
                 throw new RequiredFieldException(getResources().getString(R.string.first_name),
                         getResources().getString(R.string.error_cannot_be_empty));
             }
-            if (etClientFirstName.getEditableText().toString().trim().length() < 4 &&
-                    etClientFirstName.getEditableText().toString().trim().length() > 0) {
-                throw new ShortOfLengthException(getResources().getString(R.string.first_name), 4);
-            }
             if (!ValidationUtil.isNameValid(etClientFirstName.getEditableText().toString())) {
                 throw new InvalidTextInputException(getResources().getString(R.string.first_name),
                         getResources().getString(R.string.error_should_contain_only),
                         InvalidTextInputException.TYPE_ALPHABETS);
             }
         } catch (InvalidTextInputException e) {
-            e.notifyUserWithToast(getActivity());
-            result = false;
-        } catch (ShortOfLengthException e) {
             e.notifyUserWithToast(getActivity());
             result = false;
         } catch (RequiredFieldException e) {
@@ -454,21 +540,12 @@ public class CreateNewClientFragment extends ProgressableFragment
                         getResources().getString(R.string.error_cannot_be_empty));
             }
 
-            if (etClientLastName.getEditableText().toString().trim().length() < 4 &&
-                    etClientFirstName.getEditableText().toString().trim().length() > 0) {
-                throw new ShortOfLengthException(getResources().getString(R.string.last_name), 4);
-            }
-
             if (!ValidationUtil.isNameValid(etClientLastName.getEditableText().toString())) {
                 throw new InvalidTextInputException(getResources().getString(R.string.last_name),
                         getResources().getString(R.string.error_should_contain_only),
                         InvalidTextInputException.TYPE_ALPHABETS);
             }
-
         } catch (InvalidTextInputException e) {
-            e.notifyUserWithToast(getActivity());
-            result = false;
-        } catch (ShortOfLengthException e) {
             e.notifyUserWithToast(getActivity());
             result = false;
         } catch (RequiredFieldException e) {
@@ -476,5 +553,80 @@ public class CreateNewClientFragment extends ProgressableFragment
             result = false;
         }
         return result;
+    }
+
+    public void setClientId(Integer id) {
+        returnedClientId = id;
+        if (createClientWithImage) {
+            createNewClientPresenter.uploadImage(returnedClientId, ClientImageFile);
+        } else {
+            getActivity().getSupportFragmentManager().popBackStack();
+        }
+    }
+
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (requestCode == CAPTURE_IMAGE_ACTIVITY_REQUEST_CODE
+                && resultCode == Activity.RESULT_OK) {
+            createClientWithImage = true;
+            ivClientImage.setImageBitmap(BitmapFactory.
+                    decodeFile(ClientImageFile.getAbsolutePath()));
+        } else if (requestCode == PICK_IMAGE_ACTIVITY_REQUEST_CODE
+                        && resultCode == Activity.RESULT_OK) {
+            createClientWithImage = true;
+            pickedImageUri = data.getData();
+
+            String[] filePath = { MediaStore.Images.Media.DATA };
+            Cursor c = getActivity().getContentResolver().query(pickedImageUri, filePath,
+                    null, null, null);
+            c.moveToFirst();
+            int columnIndex = c.getColumnIndex(filePath[0]);
+            String picturePath = c.getString(columnIndex);
+
+            ivClientImage.setImageBitmap(BitmapFactory.decodeFile(picturePath));
+
+            ClientImageFile = new File(picturePath);
+        }
+    }
+
+    @Override
+    public void showProgress(String message) {
+        if (progress == null) {
+            progress = new ProgressDialog(getActivity(), ProgressDialog.STYLE_SPINNER);
+            progress.setCancelable(false);
+        }
+        progress.setMessage(message);
+        progress.show();
+    }
+
+    @Override
+    public void hideProgress() {
+        if (progress != null && progress.isShowing())
+            progress.dismiss();
+    }
+
+    public  boolean isStoragePermissionGranted() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (getActivity().checkSelfPermission(android.Manifest.permission.READ_EXTERNAL_STORAGE)
+                    == PackageManager.PERMISSION_GRANTED) {
+                return true;
+            } else {
+                requestPermissions(new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
+                        READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE);
+                return false;
+            }
+        } else { //permission is automatically granted on sdk<23 upon installation
+            return true;
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(
+            int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED
+                && requestCode == READ_EXTERNAL_STORAGE_PERMISSION_REQUEST_CODE) {
+            uploadClientImageFromDevice();
+        }
     }
 }

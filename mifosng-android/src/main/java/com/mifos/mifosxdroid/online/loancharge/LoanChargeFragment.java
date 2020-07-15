@@ -9,12 +9,11 @@ package com.mifos.mifosxdroid.online.loancharge;
  */
 
 import android.content.Context;
-import android.os.Build;
 import android.os.Bundle;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.widget.SwipeRefreshLayout;
-import android.support.v7.widget.LinearLayoutManager;
-import android.support.v7.widget.RecyclerView;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -31,6 +30,7 @@ import com.mifos.mifosxdroid.core.MifosBaseActivity;
 import com.mifos.mifosxdroid.core.MifosBaseFragment;
 import com.mifos.mifosxdroid.core.RecyclerItemClickListener;
 import com.mifos.mifosxdroid.core.util.Toaster;
+import com.mifos.mifosxdroid.dialogfragments.chargedialog.OnChargeCreateListener;
 import com.mifos.mifosxdroid.dialogfragments.loanchargedialog.LoanChargeDialogFragment;
 import com.mifos.objects.client.Charges;
 import com.mifos.utils.Constants;
@@ -47,7 +47,7 @@ import butterknife.OnClick;
 
 
 public class LoanChargeFragment extends MifosBaseFragment implements LoanChargeMvpView,
-        RecyclerItemClickListener.OnItemClickListener {
+        RecyclerItemClickListener.OnItemClickListener, OnChargeCreateListener {
 
     public static final int MENU_ITEM_ADD_NEW_LOAN_CHARGES = 3000;
 
@@ -69,7 +69,7 @@ public class LoanChargeFragment extends MifosBaseFragment implements LoanChargeM
     @Inject
     LoanChargePresenter mLoanChargePresenter;
 
-    List<Charges> chargesList = new ArrayList<>();
+    private List<Charges> chargesList = new ArrayList<>();
 
     private ChargeNameListAdapter mChargesNameListAdapter;
     private View rootView;
@@ -193,15 +193,15 @@ public class LoanChargeFragment extends MifosBaseFragment implements LoanChargeM
     @Override
     public void showLoanChargesList(List<Charges> charges) {
 
+        chargesList = charges;
+        mChargesNameListAdapter = new ChargeNameListAdapter(context,
+                chargesList, loanAccountNumber);
+        rv_charges.setAdapter(mChargesNameListAdapter);
+
         if (charges.size() == 0) {
             ll_error.setVisibility(View.VISIBLE);
-            mNoChargesText.setText("There is No Charges to Show");
+            mNoChargesText.setText(getString(R.string.message_no_charges_available));
             mNoChargesIcon.setImageResource(R.drawable.ic_assignment_turned_in_black_24dp);
-        } else {
-            chargesList = charges;
-            mChargesNameListAdapter = new ChargeNameListAdapter(context,
-                    chargesList, loanAccountNumber);
-            rv_charges.setAdapter(mChargesNameListAdapter);
         }
     }
 
@@ -238,8 +238,7 @@ public class LoanChargeFragment extends MifosBaseFragment implements LoanChargeM
         menuItemAddNewLoanCharge.setIcon(getResources().getDrawable(R.drawable
                 .ic_add_white_24dp));
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB)
-            menuItemAddNewLoanCharge.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
+        menuItemAddNewLoanCharge.setShowAsAction(MenuItem.SHOW_AS_ACTION_IF_ROOM);
         super.onPrepareOptionsMenu(menu);
     }
 
@@ -249,6 +248,7 @@ public class LoanChargeFragment extends MifosBaseFragment implements LoanChargeM
         if (id == MENU_ITEM_ADD_NEW_LOAN_CHARGES) {
             LoanChargeDialogFragment loanChargeDialogFragment = LoanChargeDialogFragment
                     .newInstance(loanAccountNumber);
+            loanChargeDialogFragment.setOnChargeCreateListener(this);
             FragmentTransaction fragmentTransaction = getActivity().getSupportFragmentManager()
                     .beginTransaction();
             fragmentTransaction.addToBackStack(FragmentConstants.FRAG_CHARGE_LIST);
@@ -258,4 +258,15 @@ public class LoanChargeFragment extends MifosBaseFragment implements LoanChargeM
         return super.onOptionsItemSelected(item);
     }
 
+    @Override
+    public void onChargeCreatedSuccess(Charges charge) {
+        chargesList.add(charge);
+        Toaster.show(rootView, getString(R.string.message_charge_created_success));
+        mChargesNameListAdapter.notifyItemInserted(chargesList.size() - 1);
+    }
+
+    @Override
+    public void onChargeCreatedFailure(String errorMessage) {
+        Toaster.show(rootView, errorMessage);
+    }
 }

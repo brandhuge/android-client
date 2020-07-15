@@ -7,7 +7,7 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.os.Environment;
-import android.support.annotation.Nullable;
+import androidx.annotation.Nullable;
 import android.util.AttributeSet;
 import android.util.TypedValue;
 import android.view.MotionEvent;
@@ -140,5 +140,13 @@ public class SignatureView extends View {
         mYCoordinateList.clear();
         destroyDrawingCache();
         invalidate();
+    }
+
+    public int getXCoordinateSize() {
+        return mXCoordinateList.size();
+    }
+
+    public int getYCoordinateSize() {
+        return mYCoordinateList.size();
     }
 }

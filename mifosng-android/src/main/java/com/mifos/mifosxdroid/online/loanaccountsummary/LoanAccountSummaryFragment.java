@@ -7,8 +7,8 @@ package com.mifos.mifosxdroid.online.loanaccountsummary;
 
 import android.app.Activity;
 import android.os.Bundle;
-import android.support.v4.app.FragmentTransaction;
-import android.support.v4.content.ContextCompat;
+import androidx.fragment.app.FragmentTransaction;
+import androidx.core.content.ContextCompat;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
@@ -373,7 +373,7 @@ public class LoanAccountSummaryFragment extends ProgressableFragment
         FragmentTransaction fragmentTransaction = getActivity().getSupportFragmentManager()
                 .beginTransaction();
         fragmentTransaction.addToBackStack(FragmentConstants.FRAG_LOAN_ACCOUNT_SUMMARY);
-        fragmentTransaction.replace(R.id.container, loanAccountFragment);
+        fragmentTransaction.replace(container, loanAccountFragment);
         fragmentTransaction.commit();
     }
 
